@@ -7,7 +7,8 @@ from os.path import join
 class Player(pg.sprite.Sprite):
     def __init__(self, surf, groups):
         super(). __init__(groups)
-        self.image = surf
+        self.original_surf = surf
+        self.image = self.original_surf
         self.rect = self.image.get_frect(center = (WIDTH_SCREEN / 2, HEIGHT_SCREEN - 55))
         self.direction = pg.Vector2()
         self.speed = 400
@@ -17,6 +18,9 @@ class Player(pg.sprite.Sprite):
         self.shoot_time = 0
         self.cooldown_duration = 400
 
+        #mask
+        self.mask = pg.mask.from_surface(self.image)
+
     def laser_timer(self):
         if not self.can_shoot:
             current_time = pg.time.get_ticks()
@@ -25,7 +29,7 @@ class Player(pg.sprite.Sprite):
 
     def update(self, dt):
         keys = pg.key.get_pressed()
-        self.direction.x = (int(keys[pg.K_RIGHT] or int(keys[pg.K_d]))) - (int(keys[pg.K_LEFT] or int(keys[pg.K_s])))
+        self.direction.x = (int(keys[pg.K_RIGHT] or int(keys[pg.K_d]))) - (int(keys[pg.K_LEFT] or int(keys[pg.K_a])))
         self.direction.y = (int(keys[pg.K_DOWN] or int(keys[pg.K_s]))) - (int(keys[pg.K_UP] or int(keys[pg.K_w])))
         self.direction = self.direction.normalize() if self.direction else self.direction
         self.rect.center += self.direction * self.speed * dt
@@ -63,11 +67,12 @@ class Meteor(pg.sprite.Sprite):
         self.image = self.orginial_surf
         self.rect = self.image.get_frect(center = pos)
         self.start_time = pg.time.get_ticks()
-        self.lifetime = 2500
+        self.lifetime = 3000
         self.direction = pg.Vector2(random.uniform(-0.5, 0.5),1)
-        self.speed = random.randint(200, 500)
+        self.speed = random.randint(200, 300)
         self.rotation = 0
-        self.rotation_speed = random.randint(100, 300)
+        self.rotation_speed = random.randint(100, 200)
+        self.mask = pg.mask.from_surface(self.image)
 
     def update(self, dt):
         self.rect.center += self.speed * self.direction * dt
@@ -76,6 +81,15 @@ class Meteor(pg.sprite.Sprite):
         self.rotation += self.rotation_speed * dt
         self.image = pg.transform.rotozoom(self.orginial_surf, self.rotation,1)
         self.rect = self.image.get_frect(center = self.rect.center)
+
+
+def collisons():
+    global running
+
+    collision_sprites =  pg.sprite.spritecollide(player, meteor_sprite, True, pg.sprite.collide_mask)
+    if collision_sprites:
+        print("Player collided with meteors!")
+        running = False
 
 
 
@@ -101,7 +115,7 @@ meteor_sprite = pg.sprite.Group()
 laser_sprite = pg.sprite.Group()
 for _ in range(20):
     Star(all_sprites, star_surf)
-Player(player_surf, all_sprites)
+player = Player(player_surf, all_sprites)
 
 
 #meteor event
@@ -117,12 +131,14 @@ while running:
     for event in pg.event.get():
         if event.type == pg.QUIT:
             running = False
+
         if event.type == meteor_event:
             x, y = random.randint(0, WIDTH_SCREEN), random.randint(-200, -100)
-            Meteor((x, y), all_sprites, meteor_surf)
+            Meteor((x, y), (all_sprites,meteor_sprite), meteor_surf)
 
     #updating
     all_sprites.update(dt)
+    collisons()
 
     #drawing
     display_screen.fill("darkblue")
