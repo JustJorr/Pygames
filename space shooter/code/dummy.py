@@ -1,149 +1,165 @@
-import pygame as pg
+import pygame
 import random
 from os.path import join
 
 
-#classes
-class Player(pg.sprite.Sprite):
-    def __init__(self, surf, groups):
+class Player(pygame.sprite.Sprite):
+    def __init__(self, groups, surf):
         super(). __init__(groups)
-        self.original_surf = surf
-        self.image = self.original_surf
-        self.rect = self.image.get_frect(center = (WIDTH_SCREEN / 2, HEIGHT_SCREEN - 55))
-        self.direction = pg.Vector2()
-        self.speed = 400
+        self.image = surf
+        self.rect = self.image.get_frect(center = (WIDTH_SCREEN / 2, HEIGHT_SCREEN - 50))
+        self.direction = pygame.Vector2()
+        self.speed = 500
 
-        #laser_cooldown
+        #cooldown
         self.can_shoot = True
         self.shoot_time = 0
-        self.cooldown_duration = 400
-
-        #mask
-        self.mask = pg.mask.from_surface(self.image)
+        self.cooldown_duration = 1000
 
     def laser_timer(self):
         if not self.can_shoot:
-            current_time = pg.time.get_ticks()
-            if current_time - self.shoot_time >= self.cooldown_duration:
+            current_time = pygame.time.get_ticks()
+            if current_time - self.can_shoot >= self.cooldown_duration:
                 self.can_shoot = True
 
     def update(self, dt):
-        keys = pg.key.get_pressed()
-        self.direction.x = (int(keys[pg.K_RIGHT] or int(keys[pg.K_d]))) - (int(keys[pg.K_LEFT] or int(keys[pg.K_a])))
-        self.direction.y = (int(keys[pg.K_DOWN] or int(keys[pg.K_s]))) - (int(keys[pg.K_UP] or int(keys[pg.K_w])))
+        keys = pygame.key.get_pressed()
+        self.direction.x = (int(keys[pygame.K_RIGHT] or int(keys[pygame.K_d]))) - (int(keys[pygame.K_LEFT] or int(keys[pygame.K_a]))) 
+        self.direction.y = (int(keys[pygame.K_DOWN] or int(keys[pygame.K_s]))) - (int(keys[pygame.K_UP] or int(keys[pygame.K_w]))) 
         self.direction = self.direction.normalize() if self.direction else self.direction
         self.rect.center += self.direction * self.speed * dt
         self.rect.clamp_ip((0,0, WIDTH_SCREEN, HEIGHT_SCREEN))
 
-        recent_keys = pg.key.get_just_pressed()
-        if self.can_shoot and recent_keys[pg.K_SPACE]:
-            Laser(self.rect.midtop, (laser_sprite, all_sprites), laser_surf)
-            self.shoot_time = pg.time.get_ticks()
+        recent_keys = pygame.key.get_just_pressed()
+        if self.can_shoot and recent_keys[pygame.K_SPACE]:
+            Laser((all_sprites, laser_sprite), self.rect.midtop, laser_surf)
+            self.shoot_time = pygame.time.get_ticks()
             self.can_shoot = False
 
         self.laser_timer()
 
-class Laser(pg.sprite.Sprite):
-    def __init__(self, pos, groups, surf):
-        super(). __init__(groups)
+class Laser(pygame.sprite.Sprite):
+    def __init__(self, groups, pos, surf):
+        super().__init__(groups)
         self.image = surf
         self.rect = self.image.get_frect(midbottom = pos)
 
     def update(self, dt):
         self.rect.centery -= 400 * dt
-        if self.rect.bottom < 0:
+        if self.rect.bottom < 0 :
             self.kill()
 
-class Star(pg.sprite.Sprite):
+class Star(pygame.sprite.Sprite):
     def __init__(self, groups, surf):
-        super(). __init__(groups)
+        super().__init__(groups)
         self.image = surf
         self.rect = self.image.get_frect(center = (random.randint(0, WIDTH_SCREEN), random.randint(0, HEIGHT_SCREEN)))
 
-class Meteor(pg.sprite.Sprite):
-    def __init__(self, pos, groups, surf):
+class Meteor(pygame.sprite.Sprite):
+    def __init__(self, groups, pos, surf):
         super().__init__(groups)
-        self.orginial_surf = surf
-        self.image = self.orginial_surf
+        self.original_surf = surf
+        self.image = self.original_surf
         self.rect = self.image.get_frect(center = pos)
-        self.start_time = pg.time.get_ticks()
-        self.lifetime = 3000
-        self.direction = pg.Vector2(random.uniform(-0.5, 0.5),1)
-        self.speed = random.randint(200, 300)
+        self.direction = pygame.Vector2(random.uniform(-0.5, 0.5),1)
+        self.speed = random.randint(100, 200)
+        self.start_time = pygame.time.get_ticks()
+        self.lifetime = 2500
         self.rotation = 0
-        self.rotation_speed = random.randint(100, 200)
-        self.mask = pg.mask.from_surface(self.image)
+        self.rotation_speed = random.randint(100, 300)
 
     def update(self, dt):
         self.rect.center += self.speed * self.direction * dt
-        if pg.time.get_ticks() - self.start_time >= self.lifetime:
+        if pygame.time.get_ticks() - self.start_time >= self.lifetime:
             self.kill()
         self.rotation += self.rotation_speed * dt
-        self.image = pg.transform.rotozoom(self.orginial_surf, self.rotation,1)
+        self.image = pygame.transform.rotozoom(self.original_surf, self.rotation, 1)
         self.rect = self.image.get_frect(center = self.rect.center)
 
+class AnimatedExplosion(pygame.sprite.Sprite):
+    def __init__(self, groups, pos, frames):
+        super(). __init__(groups)
+        self.frames = frames
+        self.frames_index = 0
+        self.image = self.frames[self.frames_index]
+        self.rect = self.image.get_frect(center = pos)
 
-def collisons():
+    def update(self, dt):
+        self.frames_index += 20 * dt
+        if self.frames_index < len(self.frames):
+            self.image = self.frames[int(self.frames_index) % len(self.frames)]
+        else:
+            self.kill()
+
+def collision():
     global running
 
-    collision_sprites =  pg.sprite.spritecollide(player, meteor_sprite, True, pg.sprite.collide_mask)
+    collision_sprites = pygame.sprite.spritecollide(player, meteor_sprite, True, pygame.sprite.collide_mask)
     if collision_sprites:
-        print("Player collided with meteors!")
+        player.kill()
         running = False
 
+    for laser in laser_sprite:
+        laser_collision = pygame.sprite.spritecollide(laser, meteor_sprite, True)
+        if laser_collision:
+            laser.kill()
+            AnimatedExplosion(all_sprites, laser.rect.midtop, explosion_frames)
 
 
 #general settings
-pg.init()
+pygame.init()
 WIDTH_SCREEN, HEIGHT_SCREEN = 1280, 600
-display_screen = pg.display.set_mode((WIDTH_SCREEN, HEIGHT_SCREEN))
-pg.display.set_caption("Dummy")
-clock = pg.time.Clock()
+display_screen = pygame.display.set_mode((WIDTH_SCREEN, HEIGHT_SCREEN))
+pygame.display.set_caption("Dummy")
+clock = pygame.time.Clock()
 running = True
 
+#import 
+player_surf = pygame.image.load(join("5games-main", "space shooter", "images", "player.png")).convert_alpha()
+star_surf =  pygame.image.load(join("5games-main","space shooter","images", "star.png")).convert_alpha()
+meteor_surf = pygame.image.load(join("5games-main", "space shooter", "images", "meteor.png")).convert_alpha()
+laser_surf = pygame.image.load(join("5games-main", "space shooter", "images", "laser.png")).convert_alpha()
+explosion_frames = [pygame.image.load(join("5games-main", "space shooter", "images", "explosion", f"{i}.png")).convert_alpha() for i in range(21)]
+font = pygame.font.Font(join('5games-main', 'space shooter', 'images', 'Oxanium-Bold.ttf'), 20)
 
-# Load the images
-player_surf = pg.image.load(join("5games-main", "space shooter", "images", "player.png")).convert_alpha()
-laser_surf = pg.image.load(join("5games-main", "space shooter", "images", "laser.png")).convert_alpha()
-meteor_surf = pg.image.load(join("5games-main", "space shooter", "images", "meteor.png")).convert_alpha()
-star_surf = pg.image.load(join("5games-main", "space shooter", "images", "star.png")).convert_alpha()
+
 
 
 #sprites
-all_sprites = pg.sprite.Group()
-meteor_sprite = pg.sprite.Group()
-laser_sprite = pg.sprite.Group()
+all_sprites = pygame.sprite.Group()
+laser_sprite = pygame.sprite.Group()
+meteor_sprite = pygame.sprite.Group()
 for _ in range(20):
     Star(all_sprites, star_surf)
-player = Player(player_surf, all_sprites)
+player = Player(all_sprites, player_surf)
 
 
 #meteor event
-meteor_event = pg.event.custom_type()
-pg.time.set_timer(meteor_event, 500)
+meteor_event = pygame.event.custom_type()
+pygame.time.set_timer(meteor_event, 500)
 
 
-#while loop
+#while true
 while running:
     #frame rate
     dt = clock.tick(30) / 1000
 
-    for event in pg.event.get():
-        if event.type == pg.QUIT:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
             running = False
-
+        
         if event.type == meteor_event:
             x, y = random.randint(0, WIDTH_SCREEN), random.randint(-200, -100)
-            Meteor((x, y), (all_sprites,meteor_sprite), meteor_surf)
+            Meteor((all_sprites, meteor_sprite), (x,y), meteor_surf)
 
     #updating
     all_sprites.update(dt)
-    collisons()
+    collision()
 
     #drawing
     display_screen.fill("darkblue")
     all_sprites.draw(display_screen)
 
-    pg.display.update()
+    pygame.display.update()
 
-pg.quit()
+pygame.quit()
