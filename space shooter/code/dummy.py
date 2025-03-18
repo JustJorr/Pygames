@@ -17,6 +17,9 @@ class Player(pygame.sprite.Sprite):
         self.shoot_time = 0
         self.cooldown_duration = 1000
 
+    def event_item(self):
+        self.speed += 500
+
     def laser_timer(self):
         if not self.can_shoot:
             current_time = pygame.time.get_ticks()
@@ -31,7 +34,7 @@ class Player(pygame.sprite.Sprite):
         self.direction = self.direction.normalize() if self.direction else self.direction
         self.rect.clamp_ip((0,0, WIDTH_SCREEN, HEIGHT_SCREEN))
 
-        recent_keys = pygame.key.get_just_pressed()
+        recent_keys = pygame.key.get_pressed()
         if recent_keys[pygame.K_SPACE] and self.can_shoot:
             Laser((all_sprites, laser_sprite), laser_surf, self.rect.midtop)
             self.can_shoot = False
@@ -100,6 +103,18 @@ class AnimatedExplosion(pygame.sprite.Sprite):
             self.kill()
 
 
+class EventItem(pygame.sprite.Sprite):
+    def __init__(self, groups, surf, pos):
+        super(). __init__(groups)
+        self.image = surf
+        self.rect = self.image.get_frect(center = pos)
+
+    def update(self, dt):
+        self.rect.centery += 100 * dt
+        if self.rect.top > HEIGHT_SCREEN:
+            self.kill()
+
+
 def collision():
     global running
 
@@ -107,6 +122,12 @@ def collision():
     if collision_sprites :
         player.kill()
         explosion_sound.play()
+
+    for item in event_item_sprite:
+        item_collision = pygame.sprite.collide_mask(player, item)
+        if item_collision:
+            player.event_item()
+            item.kill()
 
     for laser in laser_sprite:
         laser_collision = pygame.sprite.spritecollide(laser, meteor_sprite, True)
@@ -116,12 +137,13 @@ def collision():
             explosion_sound.play()
 
 
+
 def display_score():
     current_time = pygame.time.get_ticks() // 1000
     text_surf = font.render(str(current_time), True, ("white"))
     text_rect = text_surf.get_frect(center = (50, 50))
     display_screen.blit(text_surf, text_rect)
-    pygame.draw.rect(display_screen, ("black"), text_rect.inflate(20, 20).move(0, -3), 5, 10)
+    pygame.draw.rect(display_screen, ("black"), text_rect.inflate(30, 20).move(0, -5), 5, 10)
 
 
 #general settings
@@ -138,8 +160,10 @@ player_surf = pygame.image.load(join("5games-main", "space shooter", "images", "
 star_surf =  pygame.image.load(join("5games-main","space shooter","images", "star.png")).convert_alpha()
 meteor_surf = pygame.image.load(join("5games-main", "space shooter", "images", "meteor.png")).convert_alpha()
 laser_surf = pygame.image.load(join("5games-main", "space shooter", "images", "laser.png")).convert_alpha()
+event_item_surf = pygame.image.load(join("5games-main", "space shooter", "Craftpix", "PNG", "Bonus_Items", "Hero_Movement_Debuff.png")).convert_alpha()
+event_item_surf = pygame.transform.smoothscale(event_item_surf, (50,50))
 explosion_frames = [pygame.image.load(join("5games-main", "space shooter", "images", "explosion", f"{i}.png")).convert_alpha() for i in range(21)]
-font = pygame.font.Font(join('5games-main', 'space shooter', 'images', 'Oxanium-Bold.ttf'), 20)
+font = pygame.font.Font(join('5games-main', 'space shooter', 'images', 'Oxanium-Bold.ttf'), 40)
 
 
 #sounds
@@ -156,6 +180,7 @@ game_music.play(loops= 5)
 all_sprites = pygame.sprite.Group()
 laser_sprite = pygame.sprite.Group()
 meteor_sprite = pygame.sprite.Group()
+event_item_sprite = pygame.sprite.Group()
 for _ in range(20):
     Star(all_sprites, star_surf)
 player = Player(all_sprites, player_surf)
@@ -164,6 +189,11 @@ player = Player(all_sprites, player_surf)
 #meteor event
 meteor_event = pygame.event.custom_type()
 pygame.time.set_timer(meteor_event, 500)
+
+
+#bonus item event
+event_item = pygame.event.custom_type()
+pygame.time.set_timer(event_item, 10000)
 
 
 #while loop
@@ -178,6 +208,10 @@ while running:
         if event.type == meteor_event:
             x, y = random.randint(0, HEIGHT_SCREEN), random.randint(-100, -50)
             Meteor((all_sprites, meteor_sprite), meteor_surf, (x, y))
+
+        if event.type == event_item:
+            x, y = random.randint(0, WIDTH_SCREEN), random.randint(-100, 50)
+            EventItem((all_sprites, event_item_sprite), event_item_surf, (x, y))
 
     #updating
     all_sprites.update(dt)
