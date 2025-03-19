@@ -21,16 +21,21 @@ class Player(pygame.sprite.Sprite):
         self.rect.clamp_ip((0,0, WINDOW_WIDTH, WINDOW_HEIGHT))
 
     def move(self, dt):
-        self.rect.x += self.direction.x * self.speed * dt
+        self.direction.x += self.direction.y * self.speed * dt
         self.collision("horizontal")
-        self.rect.y += self.direction.y * self.speed * dt
+        self.direction.y += self.direction.y * self.speed * dt
         self.collision("vertical")
 
     def collision(self, direction):
-        for sprite in self.collision_sprites:
-            if sprite.rect.collision(self.rect):
+        for sprite in self.collision_sprite:
+            if sprite.collision(self.rect):
                 if direction == "horizontal":
                     if self.direction.x > 0 : self.rect.right = sprite.rect.left
                     if self.direction.x < 0 : self.rect.left = sprite.rect.right
                 else:
-                    if self.direction.y > 0 : self.rect.bottom = sprite.rect.top
+                    if self.direction.x > 0 : self.rect.bottom = sprite.rect.top
+                    if self.direction.x < 0 : self.rect.top = sprite.rect.bottom
+
+    def update(self, dt):
+        self.input()
+        self.move(dt)
