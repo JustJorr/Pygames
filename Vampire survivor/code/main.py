@@ -1,7 +1,7 @@
 from settings import *
 from player import Player
 from sprites import *
-import random
+from pytmx.util_pygame import load_pygame
 
 
 class Game:
@@ -16,13 +16,11 @@ class Game:
         self.all_sprites = pygame.sprite.Group()
         self.collision_sprite = pygame.sprite.Group()
 
+        self.setup()
+
         #sprites
         self.player = Player(self.all_sprites, (WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2), self.collision_sprite)
-        for _ in range(10):
-            x, y = random.randint(0, WINDOW_WIDTH), random.randint(0, WINDOW_HEIGHT)
-            w,h = random.randint(60, 100), random.randint(50, 100)
-            CollisionSprite((x,y), (w,h), (self.all_sprites, self.collision_sprite))
-
+        
     def run(self):
         while self.running:
             #dt
@@ -42,6 +40,15 @@ class Game:
             pygame.display.update()
         
         pygame.quit()
+
+    def setup(self):
+        map = load_pygame(join("5games-main", "Vampire survivor", "data", "maps", "world.tmx"))
+
+        for x, y, image in map.get_layer_by_name("Ground").tiles():
+            Sprite((x * TILE_SIZE, y * TILE_SIZE), image, self.all_sprites)
+
+        for obj in map.get_layer_by_name("Objects"):
+            CollisionSprite((obj.x, obj.y), obj.image, (self.all_sprites, self.collision_sprite))
 
 if __name__ == "__main__":
     game = Game()
