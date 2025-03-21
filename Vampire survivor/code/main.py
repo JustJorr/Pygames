@@ -1,6 +1,7 @@
 from settings import *
 from player import Player
 from sprites import *
+from groups import AllSprites
 from pytmx.util_pygame import load_pygame
 
 
@@ -13,14 +14,30 @@ class Game:
         self.clock = pygame.time.Clock()
 
         #groups
-        self.all_sprites = pygame.sprite.Group()
+        self.all_sprites = AllSprites()
         self.collision_sprite = pygame.sprite.Group()
 
         self.setup()
 
         #sprites
-        self.player = Player(self.all_sprites, (WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2), self.collision_sprite)
-        
+
+    def setup(self):
+        map = load_pygame(join("5games-main", "Vampire survivor", "data", "maps", "world.tmx"))
+
+        for x, y, image in map.get_layer_by_name("Ground").tiles():
+            Sprite((x * TILE_SIZE, y * TILE_SIZE), image, self.all_sprites)
+
+        for obj in map.get_layer_by_name("Objects"):
+            CollisionSprite((obj.x, obj.y), obj.image, (self.all_sprites, self.collision_sprite))
+
+        for obj in map.get_layer_by_name("Collisions"):
+            CollisionSprite((obj.x, obj.y), pygame.Surface((obj.width, obj.height)), self.collision_sprite)
+
+        for obj in map.get_layer_by_name("Entities"):
+            if obj.name == "Player":
+                self.player = Player(self.all_sprites, (obj.x, obj.y),  self.collision_sprite)
+
+
     def run(self):
         while self.running:
             #dt
@@ -36,19 +53,10 @@ class Game:
 
             #draw
             self.display_surface.fill("black")
-            self.all_sprites.draw(self.display_surface)
+            self.all_sprites.draw(self.player.rect.center)
             pygame.display.update()
         
         pygame.quit()
-
-    def setup(self):
-        map = load_pygame(join("5games-main", "Vampire survivor", "data", "maps", "world.tmx"))
-
-        for x, y, image in map.get_layer_by_name("Ground").tiles():
-            Sprite((x * TILE_SIZE, y * TILE_SIZE), image, self.all_sprites)
-
-        for obj in map.get_layer_by_name("Objects"):
-            CollisionSprite((obj.x, obj.y), obj.image, (self.all_sprites, self.collision_sprite))
 
 if __name__ == "__main__":
     game = Game()
