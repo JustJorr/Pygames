@@ -16,7 +16,6 @@ class Game:
         #groups
         self.all_sprites = AllSprites()
         self.collision_sprite = pygame.sprite.Group()
-        self.player = Player((WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2), self.all_sprites, self.collision_sprite)
 
         self.setup()
 
@@ -28,6 +27,14 @@ class Game:
 
         for obj in map.get_layer_by_name("Objects"):
             CollisionSprite((self.all_sprites, self.collision_sprite), (obj.x, obj.y), obj.image)
+
+        for obj in map.get_layer_by_name("Collisions"):
+            CollisionSprite(self.collision_sprite, (obj.x, obj.y), pygame.Surface((obj.width, obj.height)))
+
+        for obj in map.get_layer_by_name("Entities"):
+            if obj.name == "Player":
+                self.player = Player((WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2), self.all_sprites, self.collision_sprite)
+                self.gun = Gun(self.player, self.all_sprites)
 
     def run(self):
         #while loop
