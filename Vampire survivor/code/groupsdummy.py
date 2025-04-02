@@ -8,7 +8,7 @@ class AllSprites(pygame.sprite.Group):
 
     def draw(self, target_pos):
         self.offset.x = -(target_pos[0] - WINDOW_WIDTH / 2)
-        self.offset.y = -(target_pos[1] - WINDOW_HEIGT/ 2)
+        self.offset.y = -(target_pos[1] - WINDOW_HEIGT / 2)
 
         ground_sprites = [sprite for sprite in self if hasattr(sprite, "ground")]
         object_sprites = [sprite for sprite in self if not hasattr(sprite, "ground")]
