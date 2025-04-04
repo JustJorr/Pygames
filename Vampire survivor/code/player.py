@@ -4,7 +4,7 @@ class Player(pygame.sprite.Sprite):
     def __init__(self, pos, groups, collision_sprites):
         super().__init__(groups)
         self.load_images()
-        self.state, self.frames_index = "down", 0
+        self.state, self.frames_index = "right", 0
         self.image = pygame.image.load(join("5games-main", "Vampire survivor", "images", "player", "down", "0.png")).convert_alpha()
         self.rect = self.image.get_frect(center = pos)
         self.hitbox_rect = self.rect.inflate(-60, 0)
