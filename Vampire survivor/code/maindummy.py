@@ -1,4 +1,5 @@
 import pygame.time
+import random
 from settings import *
 from playerdummy import Player
 from spritesdummy import *
