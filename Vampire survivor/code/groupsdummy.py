@@ -1,3 +1,4 @@
+from random import choice
 from settings import *
 
 class AllSprites(pygame.sprite.Group):
