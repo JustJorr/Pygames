@@ -63,5 +63,3 @@ class Player(pygame.sprite.Sprite):
         self.input()
         self.move(dt)
         self.animate(dt)
-
-    #kfkf
