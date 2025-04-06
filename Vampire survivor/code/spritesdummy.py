@@ -63,3 +63,5 @@ class Bullet(pygame.sprite.Sprite):
         
         if pygame.time.get_ticks() - self.spawn_time >= self.lifetime:
             self.kill()
+
+
