@@ -19,5 +19,3 @@ class AllSprites(pygame.sprite.Group):
                 self.display_surface.blit(sprite.image, sprite.rect.topleft + self.offset)
 
 
-
-
