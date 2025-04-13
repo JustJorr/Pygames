@@ -1,5 +1,6 @@
 from settings import *
 
+
 class Player(pygame.sprite.Sprite):
     def __init__(self, pos, groups, collision_sprites):
         super().__init__(groups)
