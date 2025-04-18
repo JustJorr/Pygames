@@ -1,7 +1,6 @@
 from settings import *
 from math import atan2, degrees
 
-
 class Sprite(pygame.sprite.Sprite):
     def __init__(self, groups, pos, surf):
         super().__init__(groups)
