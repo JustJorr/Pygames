@@ -68,7 +68,7 @@ class Game:
             current_time = pygame.time.get_ticks()
             if current_time - self.shoot_time >= self.cooldown:
                 self.can_shoot = True
-    
+
     def invulnerability_timer(self):
         if self.player_invulnerable:
             current_time = pygame.time.get_ticks()
