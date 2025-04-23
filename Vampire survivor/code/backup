@@ -1,0 +1,393 @@
+#main
+import pygame.time
+from settings import *
+from playerdummy import Player
+from spritesdummy import *
+from groupsdummy import AllSprites
+from pytmx.util_pygame import load_pygame
+
+class Game:
+    def __init__(self):
+        pygame.init()
+        self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+        pygame.display.set_caption("Dummy")
+        self.running = True
+        self.clock = pygame.time.Clock()
+        self.game_state = "playing"
+
+        #cooldown gun
+        self.can_shoot = True
+        self.shoot_time = 0
+        self.cooldown = 300
+
+        #groups
+        self.all_sprites = AllSprites()
+        self.collison_sprites = pygame.sprite.Group()
+        self.bullet_sprites = pygame.sprite.Group()
+        self.enemy_sprites = pygame.sprite.Group()
+
+        #enemy timer
+        self.enemy_event = pygame.event.custom_type()
+        pygame.time.set_timer(self.enemy_event, 1000)
+        self.spawn_positions = []
+
+        #lives
+        self.lives = 3
+        self.heart_surf = pygame.image.load(join("5games-main", "Vampire survivor", "images", "gun" ,"gun.png")).convert_alpha()
+        self.heart_rect = self.heart_surf.get_frect()
+        
+        # Player invulnerability
+        self.player_invulnerable = False
+        self.invulnerability_time = 0
+        self.invulnerability_duration = 3000  
+
+        #setup
+        self.load_images()
+        self.setup()
+
+    def load_images(self):
+        self.bullet_surf = pygame.image.load(join("5games-main", "Vampire survivor", "images", "gun", "bullet.png")).convert_alpha()
+
+        folders = list(walk(join("5games-main", "Vampire survivor", "images", "enemies")))[0][1]
+        self.enemy_frames = {}
+        for folder in folders:
+            for folder_path, _, file_names in walk(join("5games-main", "Vampire survivor", "images", "enemies", folder)):
+                self.enemy_frames[folder] = []
+                for file_name in sorted(file_names, key=lambda name: int(name.split(".")[0])):
+                    full_path = join(folder_path, file_name)
+                    surf = pygame.image.load(full_path).convert_alpha()
+                    self.enemy_frames[folder].append(surf)
+
+    def input(self):
+        if pygame.mouse.get_just_pressed()[0] and self.can_shoot:
+            pos = self.gun.rect.center + self.gun.player_direction * 80
+            Bullet((self.all_sprites, self.bullet_sprites), self.bullet_surf, pos, self.gun.player_direction)
+            self.can_shoot = False
+            self.shoot_time = pygame.time.get_ticks()
+
+    def bullet_timer(self):
+        if not self.can_shoot:
+            current_time = pygame.time.get_ticks()
+            if current_time - self.shoot_time >= self.cooldown:
+                self.can_shoot = True
+
+    def invulnerability_timer(self):
+        if self.player_invulnerable:
+            current_time = pygame.time.get_ticks()
+            if current_time - self.invulnerability_time >= self.invulnerability_duration:
+                self.player_invulnerable = False
+
+                # Reset player visibility
+                self.player.image.set_alpha(255)
+
+    def setup(self):
+        map = load_pygame(join("5games-main", "Vampire survivor", "data", "maps", "world.tmx"))
+
+        for x, y, image in map.get_layer_by_name("Ground").tiles():
+            Sprite(self.all_sprites, image, (x * TILE_SIZE, y * TILE_SIZE))
+
+        for obj in map.get_layer_by_name("Objects"):
+            CollisionSprite((self.all_sprites, self.collison_sprites), obj.image, (obj.x, obj.y))
+
+        for obj in map.get_layer_by_name("Collisions"):
+            CollisionSprite(self.collison_sprites, pygame.Surface((obj.width, obj.height)), (obj.x, obj.y))
+
+        for obj in map.get_layer_by_name("Entities"):
+            if obj.name == "Player":
+                self.player = Player(self.all_sprites, (obj.x, obj.y), self.collison_sprites)
+                self.gun = Gun(self.all_sprites, self.player)
+            else:
+                self.spawn_positions.append([obj.x, obj.y])
+
+    def draw_lives(self):
+        for i in range(self.lives):
+            self.heart_rect.x = 10 + i * (self.heart_rect.width + 5)
+            self.heart_rect.y = 10
+            self.screen.blit(self.heart_surf, self.heart_rect)
+
+    def player_collision(self):
+        # Only check for collisions if player is not invulnerable
+        if not self.player_invulnerable:
+            if pygame.sprite.spritecollide(self.player, self.enemy_sprites, False, pygame.sprite.collide_mask):
+                self.lives -= 1
+                if self.lives > 0:
+                    # Make player invulnerable
+                    self.player_invulnerable = True
+                    self.invulnerability_time = pygame.time.get_ticks()
+                    # Make player slightly transparent to show invulnerability
+                    self.player.image.set_alpha(150)
+                else:
+                    self.game_state = "game_over"
+
+    def bullet_collision(self):
+        if self.bullet_sprites:
+            for sprite in self.bullet_sprites:
+                bullet_collision = pygame.sprite.spritecollide(sprite, self.enemy_sprites, False, pygame.sprite.collide_mask)
+                if bullet_collision:
+                    sprite.kill()
+                    for sprite in bullet_collision:
+                        sprite.destroy()
+
+    def run(self):
+        while self.running:
+            dt = self.clock.tick(30) / 1000
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                if event.type == self.enemy_event:
+                    Enemy((self.all_sprites, self.enemy_sprites), random.choice(self.spawn_positions), self.collison_sprites, self.player, random.choice(list(self.enemy_frames.values())))
+
+            #updating
+            if self.game_state == "playing":
+                self.all_sprites.update(dt)
+                self.input()
+                self.bullet_timer()
+                self.invulnerability_timer() 
+                self.player_collision()
+                self.bullet_collision()
+
+            #drawing
+            if self.game_state == "playing":
+                self.screen.fill("black")
+                self.all_sprites.draw(self.player.rect.center)
+                self.draw_lives()
+                pygame.display.update()
+
+            elif self.game_state == "game_over":
+                self.screen.fill("black")
+                font = pygame.font.Font(join('5games-main', 'space shooter', 'images', 'Oxanium-Bold.ttf'), 20)
+                text_surf = font.render("You Died", True, ("red"))
+                text_rect = text_surf.get_rect(center=(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2))
+                self.screen.blit(text_surf, text_rect)
+                pygame.draw.rect(self.screen, ("black"), text_rect.inflate(20, 10), 3, 10)
+                pygame.display.update()
+                pygame.time.wait(2000)
+                self.running = False
+
+        pygame.quit()
+
+if __name__ == "__main__":
+    game = Game()
+    game.run()
+
+#player
+from settings import *
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self, pos, groups, collision_sprites):
+        super().__init__(groups)
+        self.load_images()
+        self.state, self.frames_index = "down", 0
+        self.image = pygame.image.load(join("5games-main", "Vampire survivor", "images", "player", "down", "0.png")).convert_alpha()
+        self.rect = self.image.get_frect(center = pos)
+        self.hitbox_rect = self.rect.inflate(-65, -90)
+
+        #movement
+        self.direction = pygame.Vector2()
+        self.speed = 500
+        self.collision_sprites = collision_sprites
+
+    def load_images(self):
+        self.frames = {"up" : [], "down" : [], "right" : [], "left" : []}
+
+        for state in self.frames.keys():
+            for main_folder, sub_folder, file_names in walk(join("5games-main", "Vampire survivor", "images", "player", state)):
+                if file_names:
+                    for file_name in sorted(file_names, key=lambda name: name.split(".")[0]):
+                        full_path = join(main_folder, file_name)
+                        surf = pygame.image.load(full_path).convert_alpha()
+                        self.frames[state].append(surf)
+
+    def input(self):
+        keys = pygame.key.get_pressed()
+        self.direction.x = int(keys[pygame.K_d]) - int(keys[pygame.K_a])
+        self.direction.y = int(keys[pygame.K_s]) - int(keys[pygame.K_w])
+        self.direction = self.direction.normalize() if self.direction else self.direction
+
+    def move(self, dt):
+        self.hitbox_rect.x += self.direction.x * self.speed * dt
+        self.collision("horizontal")
+        self.hitbox_rect.y += self.direction.y * self.speed * dt
+        self.collision("vertical")
+        self.rect.center = self.hitbox_rect.center
+
+    def collision(self, direction):
+        for sprite in self.collision_sprites:
+            if sprite.rect.colliderect(self.hitbox_rect):
+                if direction == "horizontal":
+                    if self.direction.x > 0 : self.hitbox_rect.right = sprite.rect.left
+                    if self.direction.x < 0 : self.hitbox_rect.left = sprite.rect.right
+                else:
+                    if self.direction.y < 0 : self.hitbox_rect.top = sprite.rect.bottom
+                    if self.direction.y > 0 : self.hitbox_rect.bottom = sprite.rect.top
+
+    def animate(self, dt):
+        #get state
+        if self.direction.x != 0:
+            self.state = "right" if self.direction.x > 0 else "left"
+        if self.direction.y != 0:
+            self.state = "down" if self.direction.y > 0 else "up"
+
+        #animate
+        self.frames_index = self.frames_index + 5 * dt if self.direction else 0
+        self.image = self.frames[self.state][int(self.frames_index) % len(self.frames[self.state])]
+
+    def update(self,dt):
+        self.input()
+        self.move(dt)
+        self.animate(dt)
+
+#groups
+from settings import *
+
+class AllSprites(pygame.sprite.Group):
+    def __init__(self):
+        super().__init__()
+        self.display_surface = pygame.display.get_surface()
+        self.offset = pygame.Vector2()
+
+    def draw(self, target_pos):
+        self.offset.x = -(target_pos[0] - WINDOW_WIDTH / 2)
+        self.offset.y = -(target_pos[1] - WINDOW_HEIGHT / 2)
+
+        ground_sprites = [sprite for sprite in self if hasattr(sprite, "ground")]
+        object_sprites = [sprite for sprite in self if not hasattr(sprite, "ground")]
+
+        for layer in [ground_sprites, object_sprites]:
+            for sprite in sorted(layer, key= lambda sprite: sprite.rect.centery):
+                self.display_surface.blit(sprite.image, sprite.rect.topleft + self.offset)
+
+#sprites
+from settings import *
+from math import atan2, degrees
+
+class Sprite(pygame.sprite.Sprite):
+    def __init__(self, groups, pos, surf):
+        super().__init__(groups)
+        self.image = surf
+        self.rect = self.image.get_frect(topleft = pos)
+        self.ground = True
+
+class CollisionSprite(pygame.sprite.Sprite):
+    def __init__(self, groups, pos, surf):
+        super().__init__(groups)
+        self.image = surf
+        self.rect = self.image.get_frect(topleft = pos)
+
+class Gun(pygame.sprite.Sprite):
+    def __init__(self, player, groups):
+        #player connection
+        self.player = player
+        self.distance = 140
+        self.player_direction = pygame.Vector2(1, 0)
+        
+        #sprite setup
+        super().__init__(groups)
+        self.gun_surf = pygame.image.load(join("5games-main", "Vampire survivor", "images", "gun", "gun.png")).convert_alpha()
+        self.image = self.gun_surf
+        self.rect = self.image.get_frect(center = self.player.rect.center + self.player_direction * self.distance)
+
+    def get_direction(self):
+        mouse_pos = pygame.Vector2(pygame.mouse.get_pos())
+        player_pos = pygame.Vector2(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2)
+        self.player_direction = (mouse_pos - player_pos).normalize()
+
+    def rotate_gun(self):
+        angle = degrees(atan2(self.player_direction.x, self.player_direction.y)) - 90
+        if self.player_direction.x > 0:
+            self.image = pygame.transform.rotozoom(self.gun_surf, angle, 1)
+        else:
+            self.image = pygame.transform.rotozoom(self.gun_surf, abs(angle), 1)
+            self.image = pygame.transform.flip(self.image, False, True)
+
+    def update(self, _):
+        self.get_direction()
+        self.rotate_gun()
+        self.rect.center = self.player.rect.center + self.player_direction * self.distance
+
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self, groups, surf, pos, direction):
+        super().__init__(groups)
+        self.image = surf
+        self.rect = self.image.get_frect(center = pos)
+        self.spawn_time = pygame.time.get_ticks()
+        self.lifetime = 1000
+
+        #timer
+        self.direction = direction
+        self.speed = 1200
+
+    def update(self, dt):
+        self.rect.center += self.direction * self.speed * dt
+
+        if pygame.time.get_ticks() - self.spawn_time >= self.lifetime:
+            self.kill()
+
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, groups, pos, collision_sprites, frames, player):
+        super().__init__(groups)
+        self.player = player
+
+        #image
+        self.frames, self.frames_index = frames, 0
+        self.image = self.frames[self.frames_index]
+        self.animation_speed = 6
+
+        #rect
+        self.rect = self.image.get_frect(center = pos)
+        self.hitbox_rect= self.rect.inflate(-60, -90)
+        self.collision_sprites = collision_sprites
+        self.direction = pygame.Vector2()
+        self.speed = 100
+
+        #timer
+        self.death_time = 0
+        self.death_duration = 400
+
+    def animate(self, dt):
+        self.frames_index += self.animation_speed * dt
+        self.image = self.frames[int(self.frames_index) % len(self.frames)]
+
+    def move(self, dt):
+        #get direction
+        player_pos = pygame.Vector2(self.player.rect.center)
+        enemy_pos = pygame.Vector2(self.rect.center)
+        self.direction = (player_pos - enemy_pos).normalize()
+
+        #update the rect position + collision
+        self.hitbox_rect.x += self.direction.x * self.speed * dt
+        self.collision("horizontal")
+        self.hitbox_rect.y += self.direction.y * self.speed * dt
+        self.collision("vertical")
+        self.rect.center = self.hitbox_rect.center
+
+    def collision(self, direction):
+        for sprite in self.collision_sprites:
+            if sprite.rect.colliderect(self.hitbox_rect):
+                if direction == "horizontal":
+                    if self.direction.x > 0: self.hitbox_rect.right = sprite.rect.left
+                    if self.direction.x < 0: self.hitbox_rect.left = sprite.rect.right
+                else:
+                    if self.direction.y < 0: self.hitbox_rect.top = sprite.rect.bottom
+                    if self.direction.y > 0: self.hitbox_rect.bottom = sprite.rect.top
+
+    def destroy(self):
+        #start a timer
+        self.death_time = pygame.time.get_ticks()
+
+        #change the time
+        surf = pygame.mask.from_surface(self.frames[0]).to_surface()
+        surf.set_colorkey("black")
+        self.image = surf
+
+    def death_timer(self):
+        if pygame.time.get_ticks() - self.death_time >= self.death_duration:
+            self.kill()
+
+    def update(self, dt):
+        if self.death_time == 0:
+            self.move(dt)
+            self.animate(dt)
+        else:
+            self.death_timer()
