@@ -1,6 +1,7 @@
 import random
 from Settings import *
 
+
 class Pipes(pg.sprite.Sprite):
     def __init__(self, groups, surf, pos):
         super().__init__(groups)
