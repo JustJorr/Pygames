@@ -1,5 +1,6 @@
 from Settings import *
 
+
 class Player(pg.sprite.Sprite):
     def __init__(self, groups, pos):
         super(). __init__(groups)
